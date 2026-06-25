@@ -45,6 +45,11 @@ html, body {
   background: #fff; cursor: pointer; font-size: 13px; font-weight: 600; color: #1e3a8a;
 }
 .ble-btn.connected { background: #16a34a; color: #fff; border-color: #15803d; }
+.logout-btn {
+  height: 32px; padding: 0 12px; border: 1px solid #ef9a9a; border-radius: 6px;
+  background: #fff; cursor: pointer; font-size: 13px; font-weight: 600; color: #b91c1c;
+}
+.logout-btn:hover { background: #fee2e2; }
 
 .time-display {
   font-size: 84px; font-weight: 800; text-align: center;

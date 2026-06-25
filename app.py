@@ -172,6 +172,7 @@ TR = {
     'reset': ("Reset", "重置"),
     'footer': ("Developed by ZXK from Toastmasters CLUB 6237 | © 2026 All Rights Reserved",
                "由头马 6237 俱乐部 ZXK 开发 | © 2026 版权所有"),
+    'logout': ("Logout", "退出登录"),
     'bt_title': ("Bluetooth", "蓝牙"),
     'bt_connected': ("Connected: {name}", "已连接：{name}"),
     'bt_connect_failed': ("Bluetooth connection failed: {reason}", "蓝牙连接失败：{reason}"),
@@ -203,6 +204,7 @@ LABELS = {
     'add_btn': 'add', 'remove_btn': 'remove', 'clear_btn': 'clear',
     'lbl_export': 'export_report_label', 'export_btn': 'export_report_btn',
     'apply_btn': 'apply', 'start_btn': 'start', 'pause_btn': 'pause', 'reset_btn': 'reset',
+    'logout_btn': 'logout',
     'footer': 'footer',
 }
 
@@ -226,6 +228,8 @@ class App:
         self.fast_forward_active = False
         self._proxies = []          # keep event proxies alive
         self._ff_task = None
+        self._tick_started = False
+        self._events_wired = False
 
     # ---- translation ----
     def tr(self, key, **kw):
@@ -284,8 +288,10 @@ class App:
         self.wire_app_events()
         self.render_roster()
         self.update_current_speaker_label()
-        # start the 1-second timer loop
-        asyncio.ensure_future(self._tick_loop())
+        # start the 1-second timer loop (only once for the page lifetime)
+        if not self._tick_started:
+            self._tick_started = True
+            asyncio.ensure_future(self._tick_loop())
 
     def apply_language(self):
         for id_, key in LABELS.items():
@@ -304,6 +310,9 @@ class App:
 
     # ---- event wiring ----
     def wire_app_events(self):
+        if self._events_wired:
+            return
+        self._events_wired = True
         self.on('apply_btn', 'click', lambda e: self.apply_times())
         self.on('start_btn', 'click', lambda e: self.start_timer())
         self.on('pause_btn', 'click', lambda e: self.pause_timer())
@@ -316,6 +325,7 @@ class App:
         self.on('log_btn', 'click', lambda e: self.log_end_time())
         self.on('next_btn', 'click', lambda e: self.next_speaker())
         self.on('export_btn', 'click', lambda e: asyncio.ensure_future(self.export_report()))
+        self.on('logout_btn', 'click', lambda e: self.logout())
         self.on('name_in', 'keydown', lambda e: self.add_name() if e.key == 'Enter' else None)
         self.on('level_in', 'keydown', lambda e: self.add_name() if e.key == 'Enter' else None)
         # fast forward: press and hold
@@ -347,7 +357,7 @@ class App:
         elif t < self.yellow_time:
             stage = 'green'; disp.style.background = '#16a34a'; disp.style.color = '#ffffff'
         elif t < self.red_time:
-            stage = 'yellow'; disp.style.background = '#f59e0b'; disp.style.color = '#0f172a'
+            stage = 'yellow'; disp.style.background = '#fff44f'; disp.style.color = '#0f172a'
         elif t < self.max_red_time:
             stage = 'red'; disp.style.background = '#dc2626'; disp.style.color = '#ffffff'
         else:
@@ -393,6 +403,14 @@ class App:
         self.el('apply_btn').disabled = False
         self.current_stage = 'none'
         self.send_signal(0)
+
+    def logout(self):
+        # stop timer and reset display
+        self.reset_timer()
+        # back to the login screen
+        self.el('app').classList.add('hidden')
+        self.el('login').classList.remove('hidden')
+        self.el('in_timer_name').focus()
 
     # ---- fast forward ----
     def start_fast_forward(self):
