@@ -1,0 +1,4 @@
+packages = ["openpyxl"]
+
+[files]
+"./TimeReport_Template.xlsx" = "./TimeReport_Template.xlsx"

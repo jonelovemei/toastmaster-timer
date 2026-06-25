@@ -1,0 +1,177 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Toastmaster Timer</title>
+  <link rel="stylesheet" href="./styles.css" />
+  <link rel="stylesheet" href="https://pyscript.net/releases/2024.11.1/core.css" />
+  <script type="module" src="https://pyscript.net/releases/2024.11.1/core.js"></script>
+</head>
+<body>
+  <!-- ---------- Login screen ---------- -->
+  <div id="login">
+    <div class="login-card">
+      <h1>Toastmaster Timer</h1>
+      <p class="sub">Login</p>
+      <div class="login-row">
+        <label for="in_timer_name">Timer Name:</label>
+        <input id="in_timer_name" type="text" autocomplete="off" />
+      </div>
+      <div class="login-row">
+        <label for="in_date">Date:</label>
+        <input id="in_date" type="text" />
+      </div>
+      <div class="login-row">
+        <label for="in_ytmc">YTMC No.:</label>
+        <input id="in_ytmc" type="text" autocomplete="off" />
+      </div>
+      <div class="login-row">
+        <label for="in_lang">Language:</label>
+        <select id="in_lang">
+          <option value="en" selected>English</option>
+          <option value="zh">中文</option>
+        </select>
+      </div>
+      <div class="login-actions">
+        <button id="btn_enter" class="btn-primary">Enter</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- ---------- Main app ---------- -->
+  <div id="app" class="hidden">
+    <div class="app-header">
+      <div class="toolbar">
+        <span id="meta_line" class="meta"></span>
+        <span class="spacer"></span>
+        <button id="ble_btn" class="ble-btn" title="Bluetooth">Bluetooth</button>
+        <button id="buzzer_btn" class="icon-btn on" title="Buzzer">&#128266;</button>
+      </div>
+      <div id="time_display" class="time-display">00:00</div>
+      <div class="controls">
+        <button id="apply_btn">Apply Times</button>
+        <button id="start_btn">Start</button>
+        <button id="pause_btn" disabled>Pause</button>
+        <button id="reset_btn" class="alt" disabled>Reset</button>
+      </div>
+    </div>
+
+    <div class="panels">
+      <div class="panel">
+        <h3 id="thresholds_title">Set Time Thresholds (minutes)</h3>
+        <div class="field"><label id="lbl_green">Green (minutes):</label><input id="green_in" type="number" min="0" step="0.5" value="1" /></div>
+        <div class="field"><label id="lbl_yellow">Yellow (minutes):</label><input id="yellow_in" type="number" min="0" step="0.5" value="2" /></div>
+        <div class="field"><label id="lbl_red">Red (minutes):</label><input id="red_in" type="number" min="0" step="0.5" value="3" /></div>
+        <div class="field"><label id="lbl_maxred">Max Red (minutes):</label><input id="maxred_in" type="number" min="0" step="0.5" value="3.5" /></div>
+        <div class="row-btns">
+          <button id="ff_btn" class="alt" title="Hold to fast forward">Fast Forward</button>
+          <button id="log_btn">Log End Time</button>
+          <button id="next_btn">Next Speaker</button>
+        </div>
+        <div id="current_speaker" class="current-speaker">Current Speaker: None</div>
+      </div>
+
+      <div class="panel">
+        <h3 id="roster_title">Roster: Import / Add / Export</h3>
+        <div class="field"><label id="lbl_name">Name:</label><input id="name_in" type="text" autocomplete="off" /></div>
+        <div class="field"><label id="lbl_level">Level:</label><input id="level_in" type="text" autocomplete="off" placeholder="e.g. Table Topic / L2-3 / Evaluator" /></div>
+        <div class="row-btns">
+          <button id="add_btn">Add</button>
+          <button id="remove_btn" class="alt">Remove Selected</button>
+          <button id="clear_btn" class="warn">Clear</button>
+        </div>
+        <ul id="roster_list"></ul>
+        <div class="field">
+          <label id="lbl_export">Export Report:</label>
+          <select id="export_fmt">
+            <option value="xlsx">Excel (.xlsx)</option>
+            <option value="pdf">PDF</option>
+            <option value="txt">Text (.txt)</option>
+            <option value="csv">CSV</option>
+          </select>
+          <button id="export_btn" class="row-btns" style="background:#2563eb;color:#fff;border:none;border-radius:6px;padding:8px 12px;font-weight:600;cursor:pointer;">Export Report</button>
+        </div>
+      </div>
+    </div>
+
+    <div id="footer" class="footer"></div>
+  </div>
+
+  <div id="toast" class="toast"></div>
+
+  <!-- ---------- Browser-side helpers (audio, BLE, file download) ---------- -->
+  <script>
+    // ----- Buzzer via Web Audio -----
+    let _audioCtx = null;
+    function _beepOnce(freq, ms) {
+      try {
+        if (!_audioCtx) _audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+        const osc = _audioCtx.createOscillator();
+        const gain = _audioCtx.createGain();
+        osc.frequency.value = freq; osc.type = 'square';
+        gain.gain.value = 0.18;
+        osc.connect(gain); gain.connect(_audioCtx.destination);
+        const t0 = _audioCtx.currentTime;
+        osc.start(t0); osc.stop(t0 + ms / 1000);
+      } catch (e) { console.warn('beep failed', e); }
+    }
+    window.beepTimes = function (n) {
+      for (let i = 0; i < n; i++) setTimeout(() => _beepOnce(1000, 150), i * 200);
+    };
+
+    // ----- Bluetooth LE (HM-10 / HM-19: service 0xFFE0, characteristic 0xFFE1) -----
+    const BLE_SERVICE = 0xffe0;
+    const BLE_CHAR = 0xffe1;
+    let _bleDevice = null, _bleChar = null;
+    window.bleIsConnected = function () { return !!(_bleChar && _bleDevice && _bleDevice.gatt.connected); };
+    window.bleConnect = async function () {
+      const dev = await navigator.bluetooth.requestDevice({
+        filters: [{ services: [BLE_SERVICE] }],
+        optionalServices: [BLE_SERVICE]
+      });
+      const server = await dev.gatt.connect();
+      const svc = await server.getPrimaryService(BLE_SERVICE);
+      const ch = await svc.getCharacteristic(BLE_CHAR);
+      _bleDevice = dev; _bleChar = ch;
+      dev.addEventListener('gattserverdisconnected', () => {
+        _bleChar = null;
+        if (window.onBleLost) window.onBleLost();
+      });
+      return dev.name || 'BLE device';
+    };
+    window.bleSend = async function (byte) {
+      if (!window.bleIsConnected()) throw new Error('not connected');
+      const data = Uint8Array.of(byte);
+      try { await _bleChar.writeValue(data); }
+      catch (e) { await _bleChar.writeValueWithoutResponse(data); }
+    };
+    window.bleDisconnect = function () {
+      try { if (_bleDevice && _bleDevice.gatt.connected) _bleDevice.gatt.disconnect(); } catch (e) {}
+      _bleDevice = null; _bleChar = null;
+    };
+    window.bleSupported = function () { return !!(navigator.bluetooth); };
+
+    // ----- File download -----
+    window.saveFile = function (filename, uint8, mime) {
+      const blob = new Blob([uint8], { type: mime });
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url; a.download = filename;
+      document.body.appendChild(a); a.click();
+      setTimeout(() => { URL.revokeObjectURL(url); a.remove(); }, 1500);
+    };
+    // ----- Print HTML (PDF via browser "Save as PDF") -----
+    window.printReport = function (html) {
+      const w = window.open('', '_blank');
+      if (!w) { alert('Popup blocked. Please allow popups to export PDF.'); return; }
+      w.document.write(html);
+      w.document.close();
+      w.focus();
+      setTimeout(() => { w.print(); }, 400);
+    };
+  </script>
+
+  <script type="py" src="./app.py" config="./pyscript.toml"></script>
+</body>
+</html>

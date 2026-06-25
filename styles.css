@@ -1,0 +1,96 @@
+* { box-sizing: border-box; }
+html, body {
+  margin: 0; padding: 0;
+  font-family: "Segoe UI", Arial, "Microsoft YaHei", sans-serif;
+  background: #f0f4f8; color: #0f172a;
+}
+.hidden { display: none !important; }
+
+/* ---------- Login ---------- */
+#login {
+  position: fixed; inset: 0;
+  display: flex; align-items: center; justify-content: center;
+  background: linear-gradient(180deg, #CFE3FF 0%, #ffffff 100%);
+}
+.login-card {
+  background: #fff; border: 1px solid #bfdbfe; border-radius: 10px;
+  padding: 34px 44px; box-shadow: 0 10px 30px rgba(30,58,138,.12);
+  width: 360px; max-width: 92vw;
+}
+.login-card h1 { color: #1e3a8a; text-align: center; margin: 0 0 2px; font-size: 26px; }
+.login-card .sub { color: #64748b; text-align: center; margin: 0 0 22px; font-size: 14px; }
+.login-row { display: flex; align-items: center; margin: 12px 0; }
+.login-row label { width: 120px; text-align: right; padding-right: 12px; font-weight: 600; color: #334155; font-size: 14px; }
+.login-row input, .login-row select { flex: 1; padding: 7px 8px; border: 1px solid #94a3b8; border-radius: 5px; font-size: 14px; }
+.btn-primary {
+  background: #2563eb; color: #fff; border: none; border-radius: 6px;
+  padding: 10px 26px; font-size: 15px; font-weight: 700; cursor: pointer;
+}
+.btn-primary:hover { background: #1d4ed8; }
+.login-actions { text-align: center; margin-top: 22px; }
+
+/* ---------- App ---------- */
+#app { max-width: 980px; margin: 0 auto; padding: 14px; }
+.app-header { background: #f0f4f8; }
+.toolbar { display: flex; align-items: center; gap: 8px; margin-bottom: 6px; }
+.toolbar .spacer { flex: 1; }
+.meta { color: #475569; font-size: 13px; }
+.icon-btn {
+  width: 40px; height: 32px; border: 1px solid #94a3b8; border-radius: 6px;
+  background: #fff; cursor: pointer; font-size: 16px; line-height: 1;
+}
+.icon-btn.on { background: #dbeafe; border-color: #2563eb; }
+.ble-btn {
+  height: 32px; padding: 0 12px; border: 1px solid #94a3b8; border-radius: 6px;
+  background: #fff; cursor: pointer; font-size: 13px; font-weight: 600; color: #1e3a8a;
+}
+.ble-btn.connected { background: #16a34a; color: #fff; border-color: #15803d; }
+
+.time-display {
+  font-size: 84px; font-weight: 800; text-align: center;
+  background: #fff; color: #0f172a; border-radius: 10px;
+  padding: 16px 10px; margin: 8px 0; letter-spacing: 2px;
+  transition: background .2s, color .2s;
+}
+.controls { display: flex; gap: 8px; margin-bottom: 14px; flex-wrap: wrap; }
+.controls button {
+  flex: 1; min-width: 110px; background: #2563eb; color: #fff; border: none;
+  border-radius: 6px; padding: 10px; font-weight: 700; font-size: 14px; cursor: pointer;
+}
+.controls button:disabled { opacity: .5; cursor: default; }
+.controls button.alt { background: #475569; }
+
+.panels { display: flex; gap: 12px; flex-wrap: wrap; }
+.panel {
+  background: #fff; border: 1px solid #e2e8f0; border-radius: 10px;
+  padding: 14px; flex: 1; min-width: 300px;
+}
+.panel h3 { margin: 0 0 10px; color: #1e3a8a; font-size: 15px; }
+.field { display: flex; align-items: center; gap: 8px; margin: 8px 0; }
+.field label { width: 130px; font-size: 13px; color: #334155; font-weight: 600; }
+.field input, .field select { flex: 1; padding: 6px; border: 1px solid #cbd5e1; border-radius: 5px; font-size: 13px; }
+.row-btns { display: flex; gap: 8px; flex-wrap: wrap; margin-top: 8px; }
+.row-btns button {
+  background: #2563eb; color: #fff; border: none; border-radius: 6px;
+  padding: 8px 12px; font-weight: 600; font-size: 13px; cursor: pointer;
+}
+.row-btns button.alt { background: #475569; }
+.row-btns button.warn { background: #dc2626; }
+
+#roster_list {
+  list-style: none; margin: 8px 0; padding: 0; max-height: 220px; overflow-y: auto;
+  border: 1px solid #e2e8f0; border-radius: 6px;
+}
+#roster_list li { padding: 7px 10px; cursor: pointer; border-bottom: 1px solid #f1f5f9; font-size: 13px; }
+#roster_list li:hover { background: #f8fafc; }
+#roster_list li.selected { background: #dbeafe; }
+#roster_list li.current { background: #fef3c7; font-weight: 700; }
+
+.current-speaker { margin: 8px 0; font-size: 14px; color: #0f172a; }
+.footer { text-align: center; color: #64748b; font-size: 12px; margin: 18px 0 6px; }
+.toast {
+  position: fixed; bottom: 18px; left: 50%; transform: translateX(-50%);
+  background: #0f172a; color: #fff; padding: 10px 18px; border-radius: 8px;
+  font-size: 14px; opacity: 0; transition: opacity .25s; z-index: 50; max-width: 90vw;
+}
+.toast.show { opacity: .95; }
