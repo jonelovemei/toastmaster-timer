@@ -300,7 +300,7 @@ class App:
                 node.textContent = self.tr(key)
         self.el('export_btn').textContent = self.tr('export_report_btn')
         if not self.ble_connected:
-            self.el('ble_btn').textContent = self.tr('bt_title')
+            self.el('ble_btn').title = self.tr('bt_title')
 
     def update_meta(self):
         self.el('meta_line').textContent = self.tr(
@@ -480,10 +480,10 @@ class App:
         btn = self.el('ble_btn')
         if connected:
             btn.classList.add('connected')
-            btn.textContent = self.tr('bt_title') + ' ✓'
+            btn.title = self.tr('bt_title') + ' ✓'
         else:
             btn.classList.remove('connected')
-            btn.textContent = self.tr('bt_title')
+            btn.title = self.tr('bt_title')
 
     def _on_ble_lost(self, *args):
         self.ble_connected = False
@@ -741,34 +741,105 @@ class App:
             w.writerow([])
         self._download('TimerReport.csv', buf.getvalue(), 'text/csv')
 
+    def _pdf_grid(self, n, base=5):
+        """Row layout mirroring the Excel template: left holds 1..base,
+        right holds base+1..2*base, overflow added as left/right pairs below."""
+        cap = base * 2
+        rows = base + (max(0, n - cap) + 1) // 2
+        out = []
+        for r in range(rows):
+            if r < base:
+                out.append((r, base + r))
+            else:
+                k = r - base
+                out.append((cap + 2 * k, cap + 2 * k + 1))
+        return out
+
     def export_pdf(self):
         sections = self.build_report_sections()
 
         def esc(s):
             return (str(s).replace('&', '&amp;').replace('<', '&lt;').replace('>', '&gt;'))
 
-        meta_html = ''.join(
-            f"<div><b>{esc(l)}:</b> {esc(v)}</div>" for l, v in self.report_meta_lines())
+        # Static header values come from the template, so the PDF matches the
+        # Excel report header (Year / Meeting No. / Location). Date + Timer come
+        # from the login info, exactly as written into the XLSX (I7 / R7).
+        year = mtg = loc = ''
+        try:
+            wb = load_workbook(TEMPLATE_FILENAME)
+            tws = wb['Timer'] if 'Timer' in wb.sheetnames else wb.active
+            year = tws['B7'].value or ''
+            mtg = tws['F7'].value or ''
+            loc = tws['M7'].value or ''
+        except Exception:
+            pass
+        date = self.login.get('date', '')
+        timer = self.login.get('timer_name', '')
+
+        def head_cells(has_proj, right):
+            cols = ['S.No.', 'Speaker Name']
+            if has_proj:
+                cols.append('Project No.' if right else 'Project Level.')
+            cols += ['Time Taken', 'Qualified']
+            return ''.join(f"<th>{esc(c)}</th>" for c in cols)
+
+        def data_cells(idx, records, has_proj):
+            rec = records[idx] if idx < len(records) else None
+            name = esc(rec['name']) if rec else ''
+            tm = esc(rec.get('time', '')) if rec else ''
+            qual = esc(rec.get('qual', '')) if rec else 'Yes / No'
+            cells = [f"<td class='c-no'>{idx + 1}</td>", f"<td>{name}</td>"]
+            if has_proj:
+                proj = esc(rec.get('proj', '')) if rec else ''
+                cells.append(f"<td class='c-proj'>{proj}</td>")
+            cells.append(f"<td class='c-time'>{tm}</td>")
+            cells.append(f"<td class='c-qual'>{qual}</td>")
+            return ''.join(cells)
+
         body = []
         for sec in SECTION_ORDER:
-            headers, rows = self.section_table(sec, sections.get(sec, []))
-            body.append(f"<h3>{esc(self.section_title(sec))}</h3>")
-            th = ''.join(f"<th>{esc(h)}</th>" for h in headers)
-            trs = ''.join(
-                '<tr>' + ''.join(f"<td>{esc(c)}</td>" for c in r) + '</tr>' for r in rows)
-            body.append(f"<table><thead><tr>{th}</tr></thead><tbody>{trs}</tbody></table>")
+            cfg = SECTION_LAYOUT[sec]
+            has_proj = cfg['has_proj']
+            records = sections.get(sec, [])
+            grid = self._pdf_grid(len(records))
+            ncols = (5 if has_proj else 4) * 2 + 1
+            header_row = (f"<tr>{head_cells(has_proj, False)}"
+                          f"<th class='gap'></th>{head_cells(has_proj, True)}</tr>")
+            rows_html = ''.join(
+                f"<tr>{data_cells(l, records, has_proj)}"
+                f"<td class='gap'></td>{data_cells(r, records, has_proj)}</tr>"
+                for (l, r) in grid)
+            body.append(
+                f"<table class='grid'>"
+                f"<tr><td class='sec-title' colspan='{ncols}'>"
+                f"{esc(SECTION_TIMING[sec][0])}</td></tr>"
+                f"<thead>{header_row}</thead><tbody>{rows_html}</tbody></table>")
+
         html = f"""<!DOCTYPE html><html><head><meta charset='utf-8'><title>Timer Report</title>
 <style>
-body{{font-family:Arial,'Microsoft YaHei',sans-serif;margin:24px;color:#0f172a;}}
-h1{{text-align:center;margin:0 0 14px;}}
-h3{{margin:18px 0 6px;font-style:italic;}}
-.meta{{font-size:13px;margin-bottom:8px;}}
-table{{width:100%;border-collapse:collapse;margin-bottom:6px;}}
-th{{background:#1f3a8a;color:#fff;text-align:left;padding:6px;font-size:13px;}}
-td{{border:1px solid #c7cdd6;padding:6px;font-size:13px;}}
+@page{{size:A4 portrait;margin:14mm;}}
+body{{font-family:Arial,'Microsoft YaHei',sans-serif;color:#000;margin:0;}}
+h1{{text-align:center;font-size:18px;margin:0 0 10px;}}
+.hdr{{width:100%;border-collapse:collapse;margin-bottom:10px;font-size:12px;}}
+.hdr td{{padding:2px 6px;white-space:nowrap;}}
+table.grid{{width:100%;border-collapse:collapse;margin:0 0 14px;
+  table-layout:fixed;font-size:11px;}}
+table.grid th,table.grid td{{border:1px solid #000;padding:3px 4px;
+  text-align:center;overflow:hidden;}}
+table.grid thead th{{background:#e8edf7;font-weight:bold;}}
+table.grid td.sec-title{{border:none;text-align:left;font-weight:bold;
+  font-size:12px;padding:8px 0 4px;}}
+table.grid .gap,table.grid th.gap{{border:none;width:14px;padding:0;}}
+.c-no{{width:34px;}} .c-time,.c-qual{{width:64px;}} .c-proj{{width:54px;}}
 </style></head><body>
 <h1>TIMER REPORT</h1>
-<div class='meta'>{meta_html}</div>
+<table class='hdr'><tr>
+<td><b>Year:</b> {esc(year)}</td>
+<td><b>Meeting No.:</b> {esc(mtg)}</td>
+<td><b>Date:</b> {esc(date)}</td>
+<td>{esc(loc)}</td>
+<td><b>Timer:</b> {esc(timer)}</td>
+</tr></table>
 {''.join(body)}
 </body></html>"""
         window.printReport(html)

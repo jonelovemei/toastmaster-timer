@@ -41,10 +41,12 @@ html, body {
 }
 .icon-btn.on { background: #dbeafe; border-color: #2563eb; }
 .ble-btn {
-  height: 32px; padding: 0 12px; border: 1px solid #94a3b8; border-radius: 6px;
-  background: #fff; cursor: pointer; font-size: 13px; font-weight: 600; color: #1e3a8a;
+  height: 32px; width: 44px; padding: 0; border: 1px solid #1d4ed8; border-radius: 6px;
+  background: #2563eb; cursor: pointer;
+  display: inline-flex; align-items: center; justify-content: center;
 }
-.ble-btn.connected { background: #16a34a; color: #fff; border-color: #15803d; }
+.ble-btn .ble-icon { height: 18px; width: 18px; display: block; }
+.ble-btn.connected { background: #16a34a; border-color: #15803d; }
 .logout-btn {
   height: 32px; padding: 0 12px; border: 1px solid #ef9a9a; border-radius: 6px;
   background: #fff; cursor: pointer; font-size: 13px; font-weight: 600; color: #b91c1c;
